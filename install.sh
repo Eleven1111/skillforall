@@ -58,7 +58,7 @@ for skill in "${SKILLS[@]}"; do
   rm -rf "$dst"
   cp -R "$src" "$dst"
   echo "  ✅ $skill → $dst"
-  ((installed++))
+  installed=$((installed + 1))
 done
 
 # Install scripts/ alongside skills/ so mc-cmo can find them
