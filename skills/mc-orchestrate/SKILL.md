@@ -73,6 +73,25 @@ C · 完整 20 步全链路
 
 ---
 
+## Phase -1：断点检测（新会话 / 断连恢复）
+
+触发时机：用户提到某个 slug 继续执行（"继续 slug={slug}"、"接着做 {slug}"），或本轮触发词命中但 `campaigns/{slug}/.status.json` 已存在且 `status == "running"`。
+
+1. 读取 `campaigns/{slug}/.status.json`，取 `tier` / `steps` / `review_loop`。
+   - `tier` 缺失（旧 campaign，Phase 0 未跑过 --tier 参数）→ 视为无法自动续跑，退回旧行为：询问用户当前应从哪个档位、哪一步继续。
+2. `tier` 存在时，按该档位的依赖表（见 Phase 1）结合 `steps` 里已 `done` 的条目，计算第一个未完成且其 `depends_on` 已全部满足的 Step。
+3. 条件步骤（mc-compete/mc-selection/mc-livestream/mc-dtc）是否需要执行，读 `brief.md` 的项目类型字段重新判定（不依赖 `.status.json` 单独存一份，`brief.md` 是唯一真源）。
+4. 展示断点摘要并直接继续，不再要求用户手动指定"从 Step N 开始"：
+   ```
+   🔁 检测到断点：{slug}（{tier} 档）
+   已完成：Step 1-7 → brand.md / storyteller.md / insight.md / research.md / strategy.md
+   {review_loop.iteration > 0 时追加一行：评审反馈环残留第 {iteration}/3 轮，last_verdict={last_verdict}}
+   ▶ 从 Step 8（mc-content）继续...
+   ```
+5. 若 `review_loop.iteration > 0` 且当前断点恰好在 Step 18↔19 之间，直接把反馈环状态原样接续（不归零 iteration），按原评审反馈环逻辑继续跑，而不是重新从 Step 18 起跑一遍。
+
+---
+
 ## 执行流程
 
 ### Phase 0：信息收集
@@ -98,7 +117,7 @@ C · 完整 20 步全链路
 
 已有 `brief.md` 时直接读取，不重复追问。
 
-信息收集完成后调用 `setup.mjs` 初始化 campaign 目录和 `.status.json`。
+信息收集完成后调用 `setup.mjs` 初始化 campaign 目录和 `.status.json`，**必须带上 `--tier <A|B|C>`**（本次用户选择的档位）——这是 Phase -1 断点检测能够自动续跑而不需要用户手动指定"从 Step N 开始"的前提。
 
 ---
 
@@ -270,4 +289,4 @@ campaign 二次运行时残留旧计数导致一上来就暂停）。然后执�
 | 某步骤执行失败 | 标注失败步骤，询问用户是重试还是跳过，已完成步骤不重跑 |
 | 用户中途说"停" | 立即停止，输出当前进度卡，已完成文件保留 |
 | 用户中途说"跳过这步" | 跳过当前步骤，继续执行后续依赖不受影响的步骤 |
-| 上下文超长 | 提示用户当前 context 较满，建议新会话继续，提供 slug（断点续跑为 v2 功能，v1 需用户手动在新会话中说"继续 slug={slug} 的执行，从 Step N 开始"） |
+| 上下文超长 | 提示用户当前 context 较满，建议新会话继续，提供 slug；新会话里说"继续 slug={slug}"即可，Phase -1 断点检测会自动读 `.status.json` 算出该从哪一步继续，不需要用户手动指定 Step N（前提：该 campaign 是带 `--tier` 初始化的，见 Phase -1 的降级说明） |

@@ -101,6 +101,41 @@ oversaturated, unnatural colors, plastic skin, AI-looking artifacts
 "busy cluttered background" 如果品牌是极简系}
 ```
 
+### 结构化输出格式：style.json（配套 markdown 表格，不是替代）
+
+上面的 markdown 表格是给人读的；`style.json` 是给下一次生成、给另一个工具、给版本对比用的机器可读格式——同一份品牌视觉语言，两种输出都写，不用二选一。字段设计：
+
+```json
+{
+  "style_id": "{品牌slug}-{风格代号，如 clean-minimal-v1}",
+  "version": "v1.0",
+  "prompt_template": "{SUBJECT}, {SCENE}, {LIGHTING}, {COMPOSITION}, {STYLE_KEYWORDS}, {TECH_PARAMS}",
+  "environment_variables": {
+    "SUBJECT": "{对应 模块1·人物风格：人种/年龄段/气质/妆容}",
+    "SCENE": "{对应 模块1·场景偏好：首选场景/道具风格/季节时段}",
+    "LIGHTING": "{对应 模块1·色彩系统：光影偏好}",
+    "COMPOSITION": "{对应 模块1·构图偏好：画面关系/景深/视角/留白方向}",
+    "STYLE_KEYWORDS": "{对应 模块1·风格底色：整体美学方向/时代感/情绪温度}",
+    "TECH_PARAMS": "{工具专属参数，如 Midjourney 的 --ar --style --v}"
+  },
+  "style_fidelity_anchors": [
+    "{跨素材/跨批次必须保持不变的锚点，如色彩系统的主色 hex、人物气质关键词——用于校验第 N 张图是否'跑偏'}"
+  ],
+  "negative_prompt": "{对应上方 全局 Negative Prompts 的 通用排除 + 品牌专属排除，拼成一个字符串}",
+  "source_content_to_avoid": [
+    "{品牌专属排除里每一条拆成独立条目，便于工具按条校验而非整段字符串匹配}"
+  ],
+  "examples": [
+    {
+      "case_name": "{如 小红书封面图-护肤品牌}",
+      "values": { "SUBJECT": "...", "SCENE": "...", "LIGHTING": "...", "COMPOSITION": "...", "STYLE_KEYWORDS": "...", "TECH_PARAMS": "..." }
+    }
+  ]
+}
+```
+
+写入 `campaigns/{project-slug}/style/{style_id}.json`（若同一 campaign 需要多套风格 — 如主品牌风格 + 大促风格 — 每套一个文件，`version` 递增记录迭代历史，不覆盖旧版本）。`style_fidelity_anchors` 是最该被使用的字段：素材矩阵批量生成后，抽查新素材是否仍命中锚点，是校验"品牌视觉是否跑偏"最快的办法，比人工过一遍所有图快得多。
+
 ---
 
 ## 模块 2：AI 图片生成 Prompt 体系

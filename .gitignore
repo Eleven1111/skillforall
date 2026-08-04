@@ -22,3 +22,6 @@ scripts/fingerprint.mjs
 
 # Local tooling state (not part of repo)
 .omx/
+
+# Internal taste/quality doc — never publish to this PUBLIC repo
+TASTE.md

@@ -33,6 +33,15 @@ import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { sanitizeSlug, resolveCampaignsDir, mutateStatus } from "./lib.mjs";
 import { checkCitations, formatWarnings } from "./check-citations.mjs";
+import {
+  checkBannedPhrases,
+  isCopyFile,
+  formatWarnings as formatPhraseWarnings,
+} from "./check-banned-phrases.mjs";
+import {
+  checkRequiredFields,
+  formatWarnings as formatFieldWarnings,
+} from "./check-required-fields.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CAMPAIGNS_DIR = resolveCampaignsDir(__dirname);
 
@@ -110,10 +119,25 @@ const targetDir = dirname(targetPath);
 mkdirSync(targetDir, { recursive: true });
 writeFileSync(targetPath, content, "utf-8");
 
-// Citation discipline lint — warnings only, never blocks delivery
+// Output lints — warnings only, never block delivery.
 const citationWarnings = checkCitations(content);
 if (citationWarnings.length > 0) {
   process.stderr.write(formatWarnings(citationWarnings, `${file}: `));
+}
+
+// AI-slop lint runs on copy-type outputs only (strategy/brand docs legitimately
+// use vocabulary that would be filler in ad copy).
+if (isCopyFile(file)) {
+  const phraseWarnings = checkBannedPhrases(content);
+  if (phraseWarnings.length > 0) {
+    process.stderr.write(formatPhraseWarnings(phraseWarnings, `${file}: `));
+  }
+}
+
+// Required-section presence, for the outputs whose skill declares a 必须包含 list.
+const fieldWarnings = checkRequiredFields(content, file);
+if (fieldWarnings.length > 0) {
+  process.stderr.write(formatFieldWarnings(fieldWarnings, `${file}: `));
 }
 
 // ── Update .status.json (transactional — parallel batches run concurrently) ──

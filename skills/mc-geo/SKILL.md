@@ -140,6 +140,21 @@ LLM 需要明确知道"你是谁"：
 | `BreadcrumbList` | 全站 | 帮助 AI 理解网站层级 |
 | `SpeakableSpecification` | 关键段落 | 标注可被语音/AI 直接朗读的内容块 |
 
+### AI 爬虫可访问性（robots.txt 允许/屏蔽）
+
+前面所有模块都做对，只要这一步配错，品牌在 AI 搜索里照样不可见——爬虫按用途分三层，屏蔽策略完全不同：
+
+| 层级 | 作用 | 代表爬虫 | robots.txt 建议 |
+|------|------|---------|-----------------|
+| 训练层（Training） | 抓取内容用于模型训练，不影响实时检索结果 | `GPTBot`、`ClaudeBot`、`Google-Extended` | 可按品牌意愿屏蔽（不想被用于训练可以 Disallow），**屏蔽不影响该厂商 AI 搜索产品能否引用你的页面** |
+| 检索层（Index/RAG） | 实时检索并生成引用，屏蔽=在该引擎搜索结果里完全消失 | `OAI-SearchBot`（ChatGPT 搜索）、`PerplexityBot`、`Claude-SearchBot` | **必须放行**，误屏蔽是最常见、最隐蔽的 GEO 事故——很多人为了防训练把 GPTBot 屏蔽时手滑连带屏蔽了 OAI-SearchBot，看起来是同一家公司的爬虫，实际用途完全不同 |
+| 实时层（Real-time） | 用户在对话中要求"打开这个链接"时临时访问 | `ChatGPT-User` | 需允许无登录访问，否则用户在 AI 对话里点开链接会看到登录墙 |
+
+**检查清单：**
+- [ ] 逐条核对 robots.txt，确认训练层爬虫的屏蔽决定是刻意的（品牌选择），不是复制别人模板带来的误伤
+- [ ] 确认所有检索层爬虫（OAI-SearchBot / PerplexityBot / Claude-SearchBot）未被 Disallow
+- [ ] 确认核心页面对 `ChatGPT-User` 等实时层爬虫无需登录即可访问
+
 ### 知识图谱优化
 
 - **Google Knowledge Panel**：确保品牌有 Knowledge Panel，信息准确
@@ -163,6 +178,13 @@ LLM 需要明确知道"你是谁"：
 ### Schema Markup 现状与建议
 | 页面类型 | 当前 Schema | 建议增加 | 优先级 |
 |---------|-----------|---------|--------|
+
+### AI 爬虫可访问性
+| 爬虫 | 层级 | robots.txt 当前状态 | 是否需要调整 |
+|------|------|---------------------|-------------|
+| GPTBot / ClaudeBot / Google-Extended | 训练层 | | 品牌自行决定，非必须放行 |
+| OAI-SearchBot / PerplexityBot / Claude-SearchBot | 检索层 | | 必须放行，误屏蔽=该引擎搜索结果消失 |
+| ChatGPT-User | 实时层 | | 需允许无登录访问 |
 
 ### 知识图谱
 - Google Knowledge Panel：有/无，信息是否准确
