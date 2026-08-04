@@ -3,7 +3,11 @@
  * setup.mjs — Campaign initializer
  *
  * Usage:
- *   node scripts/setup.mjs --slug <slug> [--skill <skill>] [--step <step>]
+ *   node scripts/setup.mjs --slug <slug> [--skill <skill>] [--step <step>] [--tier <A|B|C>]
+ *
+ * --tier persists mc-orchestrate's chosen execution depth (A/B/C) into
+ * .status.json so a resumed session can re-derive which dependency table
+ * applies without asking the user to pick again.
  *
  * Creates campaigns/{slug}/ and writes an initial .status.json.
  * Outputs the campaign directory path to stdout.
@@ -30,6 +34,7 @@ const get = (flag) => {
 let slug = get("--slug");
 const skill = get("--skill");
 const step = get("--step");
+const tier = get("--tier");
 
 if (!slug) {
   // Auto-generate slug from timestamp + skill
@@ -60,6 +65,7 @@ await mutateStatus(campaignDir, (prev) => {
     campaignSlug: slug,
     currentSkill: skill ?? prev.currentSkill ?? null,
     currentStep: step ?? prev.currentStep ?? null,
+    tier: tier ?? prev.tier ?? null,
     status: "running",
     startedAt: prev.startedAt ?? now,
     updatedAt: now,
