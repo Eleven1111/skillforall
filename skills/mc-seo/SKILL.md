@@ -208,6 +208,22 @@ description: 搜索引擎优化技能。覆盖关键词研究、页面 SEO、技
 - noindex 标签：只用在真正不需要收录的页面
 - 爬取预算：避免无价值页面消耗爬取资源（参数页、过滤页）
 
+**判定规则（robots.txt / sitemap.xml）：**
+
+| 检查项 | Fail | Warn | Pass |
+|--------|------|------|------|
+| robots.txt | 整站 `Disallow: /`，或误屏蔽了核心页面目录 | 存在但未声明 `Sitemap:` 指令 | 无全站屏蔽，且声明了 sitemap 位置 |
+| sitemap.xml | 404 或无法解析 | 能访问但 URL 数量与站点实际规模明显不符（如已知有上千页面但 sitemap 只列了个位数） | 可访问，URL 数量与规模匹配 |
+
+**Staging / 测试子域名误暴露检查**（容易被忽略但影响大——一旦命中会和生产站点抢排名信号）：
+
+- 排查前缀：`test.` `staging.` `dev.` `preview.` `beta.` `uat.`
+- **Fail**：该子域名可公开访问、内容与生产站高度相似、且未被认证保护 / `noindex` / `robots.txt` 屏蔽
+- **Warn**：子域名可公开访问，但内容相似度或索引保护状态无法确认
+- **Pass**：未探测到公开的 staging/test 子域名；或探测到但已被认证、非 200 状态、`noindex` 或 `Disallow: /` 保护
+- **影响说明**：Google 可能把 `test.example.com` 和 `www.example.com` 当成两个高度相似但独立的 URL，排名信号被分流，等于自己和自己抢流量
+- **修复优先级**：先加 Basic Auth 认证（最快）；其次在该子域名的 `robots.txt` 加 `Disallow: /`；页面仍可被访问到时再加 `noindex`
+
 **Core Web Vitals（Google 页面体验信号）**
 
 | 指标 | 含义 | 优良标准 | 优化方向 |
@@ -237,6 +253,26 @@ description: 搜索引擎优化技能。覆盖关键词研究、页面 SEO、技
 | `Organization` | 关于我们 | 知识图谱信息 |
 | `Article` | 博客 | 发布/更新时间显示 |
 
+**JSON-LD 校验：存在 ≠ 合格**
+
+Schema 标签"有没有加"只是第一层检查，更常见的问题是加了但格式错、漏了必填字段、或者语言/URL 对不上页面本身——这些错误肉眼很难在一堆 `<script>` 标签里看出来。按 `@type` 检查必填字段：
+
+| `@type` | 必填字段 | 缺失后果 |
+|---------|---------|---------|
+| `WebSite` | `name`、`url` | 站内搜索框（Sitelinks Search Box）无法生成 |
+| `Organization` | `name`、`url`、`logo` | 知识面板缺失或用错误 logo |
+| `Product` | `name`、`image`、`offers`（含 `price`/`priceCurrency`） | 富媒体摘要（价格/库存）不显示 |
+| `Article` | `headline`、`author`、`datePublished` | 失去发布/更新时间的 SERP 展示 |
+| `FAQPage` | `mainEntity`（每条含 `name`+`acceptedAnswer`） | 问答摘要不展开 |
+| `BreadcrumbList` | `itemListElement`（每级含 `position`+`name`+`item`） | 面包屑不显示 |
+
+**判定规则：**
+- **Fail**：JSON-LD 无法解析（语法错误）、缺少期望的 `@type`、或必填字段缺失
+- **Warn**：推荐字段缺失（如 `Product` 缺 `aggregateRating`）、嵌套字段不完整、多语言页面缺 `inLanguage`
+- **Pass**：期望的 `@type` 存在、必填字段齐全、无冲突；多语言页面时 `inLanguage`/`url` 与当前页面语种和地址一致
+
+**多语言站点专项**：每个语言版本应有各自的 Schema，`inLanguage` 与该语言匹配、`url`/`mainEntityOfPage` 指向该语言版本的规范 URL——常见错误是所有语言版本共用同一份英文 Schema，`inLanguage` 全部写 `en`。
+
 **实体 SEO（Entity SEO）**
 
 上面的 Schema 解决的是"这个页面长什么样"，实体 SEO 解决的是更底层的问题：**搜索引擎知不知道"你"是谁**。Google 的排序早已不只匹配关键词，还匹配实体——品牌、产品、作者在知识图谱里是不是一个被识别的对象。这一层做不好，内容再多也只是散落的页面，攒不出品牌权重；这也是 mc-geo 能否被 AI 引擎引用的技术前提（AI 引擎引用的是它"认识"的实体，不是它匹配到的字符串）。
@@ -257,6 +293,36 @@ description: 搜索引擎优化技能。覆盖关键词研究、页面 SEO、技
 - 重定向链路（避免重定向链/循环重定向）
 - 404 页面处理（返回真正的 404 状态码，提供有帮助的内容）
 
+**信任页面可达性（E-E-A-T Trust Pages）**
+
+这里检查的是页面**存不存在、能不能被找到**——纯技术核查，不评判内容质量。内容层面的 E-E-A-T 信号强化（专业背书、权威引用等）见 mc-geo 的对应表格，两者不重复。
+
+| 页面 | 是否必需 |
+|------|---------|
+| About Us / 关于我们 | 是 |
+| Contact / 联系方式 | 是——但不要求独立页面，见下方专项规则 |
+| Privacy Policy / 隐私政策 | 是 |
+| Terms of Service / 服务条款 | 是 |
+| Media / Partners | 否——存在才检查，不存在不算缺项 |
+
+**两层判定（除 Contact 外）：**
+- **第一层·存在**：页面 URL 返回 200
+- **第二层·可达**：该页面链接出现在 footer 或主导航
+
+| 状态 | 判定 |
+|------|------|
+| Fail | 页面不存在（非 200） |
+| Warn | 页面存在，但未链接在 footer/导航 |
+| Pass | 页面存在且可从 footer/导航直接点到 |
+
+**Contact 专项规则**（不要求必须有独立 `/contact` 页面——很多站点合规地把联系方式放在别处）：
+1. 先查常见路径 `/contact`、`/contact-us`，200 即视为满足"存在"
+2. 没有独立页面时，检查 About 页正文是否含邮箱/社媒/联系方式
+3. 再扫首页 footer 和导航是否有 `mailto:`、可见邮箱、社媒链接或联系表单
+4. 以上任一命中 → **存在·Pass**；全部没有 → **存在·Fail**
+5. 联系方式仅出现在 About 页正文里（不在 footer/导航）→ **可达·Warn**
+6. **不要**在 About 页或 footer 已经暴露联系方式的情况下，建议客户"新建一个 /contact 页面"——这是无效建议
+
 ### 技术 SEO 审计表
 
 ```markdown
@@ -266,13 +332,21 @@ description: 搜索引擎优化技能。覆盖关键词研究、页面 SEO、技
 | 检查项 | 状态 | 问题描述 | 优先级 | 修复方案 |
 |--------|------|---------|--------|---------|
 
+### Staging 子域名
+| 检测前缀 | 状态 | 说明 |
+|---------|------|------|
+
 ### Core Web Vitals
 | 指标 | 当前值 | 评级 | 影响因素 | 优化建议 |
 |------|--------|------|---------|---------|
 
-### 结构化数据
-| 页面类型 | 现有 Schema | 建议添加 | 预期效果 |
-|---------|-----------|---------|---------|
+### 结构化数据（含 JSON-LD 校验）
+| 页面类型 | 现有 Schema | 必填字段缺失 | 建议添加 | 预期效果 |
+|---------|-----------|-------------|---------|---------|
+
+### 信任页面可达性
+| 页面 | 存在 | 可达 | 说明 |
+|------|------|------|------|
 ```
 
 ---
@@ -585,6 +659,37 @@ description: 搜索引擎优化技能。覆盖关键词研究、页面 SEO、技
 | mc-dtc | 独立站 SEO 策略直接嵌入 DTC 建站方案 |
 | mc-analytics | 搜索流量归因、关键词转化率分析 |
 | mc-campaign | SEO 内容日历与整体 campaign 节奏对齐 |
+
+---
+
+## 真实数据抓取（可选，有站点 URL 时使用）
+
+模块 3 的技术审计表默认靠人工搜索或用户提供数据填写。如果用户给了一个真实站点 URL，可以调用下面两个脚本拿真实数据，而不是靠推断——**能跑就跑，跑不出来就退回置信分级里的 `[推断]`，不要因为脚本失败就整段跳过审计**。
+
+```bash
+# 站点级信号：robots.txt + sitemap.xml + staging 子域名暴露探测
+node scripts/check-site-signals.mjs https://example.com
+
+# 单页 JSON-LD 结构化数据校验
+node scripts/check-schema.mjs https://example.com/some-page
+```
+
+两个脚本零外部依赖（只用 Node 内置 `fetch`/`dns`/`net`），输出结构化 JSON，直接对应模块 3 的表格：
+
+| 脚本字段 | 填入哪张表 |
+|---------|-----------|
+| `robots.status` / `robots.detail` | 技术审计表「爬取与索引」 |
+| `sitemap.status` / `sitemap.url_count` | 技术审计表「爬取与索引」 |
+| `staging_subdomains.status` / `.public_hosts` / `.detail` | 技术审计表「Staging 子域名」 |
+| `schemas[].status` / `.fields_missing` / `.nested_issues` | 技术审计表「结构化数据」 |
+
+**重要限制（如实告知用户，不要假装脚本万能）：**
+- 只做静态 HTTP 抓取，不执行 JavaScript——SPA/客户端渲染注入的 JSON-LD 抓不到，会报告"未找到"而不是真的没有。此时提示用户"该站点可能是客户端渲染，建议用浏览器开发者工具查看渲染后的 `<head>`"。
+- 部分站点有机器人拦截（返回验证页而非真实内容），此时脚本会如实报告 `error` 状态，不会伪造一个"通过"的结果。
+- 有防火墙/私有网络地址会被脚本主动拒绝抓取（SSRF 防护），这是刻意设计，不是 bug。
+- PageSpeed / Lighthouse 分数不在这两个脚本范围内（需要用户自备 Google API key，属于可选高级功能，未来再评估是否要加）。
+
+数据置信分级适用：脚本产出的字段标 `[实测·check-site-signals]` / `[实测·check-schema]`；脚本报错或未覆盖的部分（如 Core Web Vitals、内容质量）继续用人工搜索或 `[推断]` 补齐。
 
 ---
 
